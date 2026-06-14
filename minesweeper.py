@@ -4,6 +4,9 @@ import random
 from collections import deque
 
 
+# ─────────────────────────────────────────────
+#  DATA / CONSTANTS
+# ─────────────────────────────────────────────
 
 PERKS = {
     "Iron Will":     "Start each floor with +1 extra life (once per run).",
@@ -36,11 +39,11 @@ NUMBER_COLORS = {
     8: "#eeeeee",
 }
 
-XP_PER_SAFE  = 2
-XP_PER_FLAG  = 5
-XP_PER_FLOOR = 30
-XP_LEVEL_BASE = 60   
-XP_LEVEL_SCALE = 1.4
+XP_PER_SAFE  = 1
+XP_PER_FLAG  = 3
+XP_PER_FLOOR = 50
+XP_LEVEL_BASE = 200  # XP needed for level 2
+XP_LEVEL_SCALE = 1.6
 
 
 def xp_for_level(level):
@@ -57,7 +60,9 @@ def floor_config(floor_num):
     return rows, cols, mines
 
 
-
+# ─────────────────────────────────────────────
+#  MAIN GAME CLASS
+# ─────────────────────────────────────────────
 
 class RogueMinesweeper:
     def __init__(self, master):
@@ -67,19 +72,19 @@ class RogueMinesweeper:
         self._run_state_defaults()
         self.show_title_screen()
 
-
+    # ── Run-level state ──────────────────────
     def _run_state_defaults(self):
         self.floor        = 0
         self.lives        = 3
         self.player_xp    = 0
         self.player_level = 1
         self.xp_to_next   = xp_for_level(1)
-        self.perks        = []        
+        self.perks        = []          # active perk names
         self.score        = 0
         self.total_flags  = 0
         self.floors_cleared = 0
 
-
+    # ── Title screen ─────────────────────────
     def show_title_screen(self):
         self._clear_window()
         self.master.configure(bg="#0d0d1a")
@@ -110,12 +115,12 @@ class RogueMinesweeper:
                  text="Left-click: reveal   Right-click: flag   Middle-click: chord",
                  font=("Courier New", 9), bg="#0d0d1a", fg="#555577").pack(pady=(20, 0))
 
-
+    # ── Start / new run ──────────────────────
     def start_run(self):
         self._run_state_defaults()
         self.next_floor()
 
-
+    # ── Perk selection screen ─────────────────
     def show_perk_screen(self, callback):
         self._clear_window()
         bg = "#0d0d1a"
@@ -129,7 +134,7 @@ class RogueMinesweeper:
         tk.Label(wrap, text=f"You reached level {self.player_level}. Choose a perk:",
                  font=("Courier New", 11), bg=bg, fg="#aaaacc").pack(pady=(0, 20))
 
-    
+        # Pick 3 random perks the player doesn't have
         available = [p for p in PERKS if p not in self.perks]
         choices = random.sample(available, min(3, len(available)))
         if not choices:
@@ -151,6 +156,7 @@ class RogueMinesweeper:
             def pick(p=perk, cb=callback):
                 self.perks.append(p)
                 self._apply_permanent_perk(p)
+                self._clear_window()
                 cb()
 
             tk.Button(pf, text="Choose →",
@@ -163,10 +169,11 @@ class RogueMinesweeper:
         if perk == "Iron Will":
             self.lives += 1
 
-
+    # ── Floor transition ──────────────────────
     def next_floor(self):
         self.floor += 1
-
+        # Check for level-up perk selection
+        # (happens between floors)
         self._start_floor()
 
     def _start_floor(self):
@@ -175,7 +182,9 @@ class RogueMinesweeper:
         theme = FLOOR_THEMES[(self.floor - 1) % len(FLOOR_THEMES)]
         self._build_floor(rows, cols, mines, theme)
 
-
+    # ─────────────────────────────────────────
+    #  FLOOR (single board)
+    # ─────────────────────────────────────────
     def _build_floor(self, rows, cols, mines, theme):
         self.rows        = rows
         self.cols        = cols
@@ -187,18 +196,18 @@ class RogueMinesweeper:
         self.mine_locs     = set()
         self.flagged       = set()
         self.revealed      = set()
-        self.duds          = set() 
+        self.duds          = set()   # Lucky Charm safe bombs
         self.first_click   = True
         self.floor_ended   = False
         self.floor_seconds = 0
 
         self.master.configure(bg=self.theme_bg)
 
-
+        # ── HUD ──────────────────────────────
         hud = tk.Frame(self.master, bg=self.theme_bg)
         hud.pack(fill=tk.X, padx=8, pady=4)
 
-
+        # Left cluster
         left = tk.Frame(hud, bg=self.theme_bg)
         left.pack(side=tk.LEFT)
 
@@ -212,7 +221,7 @@ class RogueMinesweeper:
                                    bg=self.theme_bg, fg=self.theme_fg)
         self.timer_lbl.pack(side=tk.LEFT, padx=6)
 
-
+        # Center
         center = tk.Frame(hud, bg=self.theme_bg)
         center.pack(side=tk.LEFT, expand=True)
 
@@ -221,7 +230,7 @@ class RogueMinesweeper:
                  font=("Courier New", 13, "bold"),
                  bg=self.theme_bg, fg=self.theme_fg).pack()
 
-
+        # Right cluster
         right = tk.Frame(hud, bg=self.theme_bg)
         right.pack(side=tk.RIGHT)
 
@@ -240,7 +249,7 @@ class RogueMinesweeper:
                                    bg=self.theme_bg, fg="#e8c97a")
         self.score_lbl.pack(side=tk.RIGHT, padx=6)
 
-
+        # XP bar
         xp_frame = tk.Frame(self.master, bg=self.theme_bg)
         xp_frame.pack(fill=tk.X, padx=8)
         self.xp_canvas = tk.Canvas(xp_frame, height=6,
@@ -248,7 +257,7 @@ class RogueMinesweeper:
         self.xp_canvas.pack(fill=tk.X)
         self._redraw_xp_bar()
 
-
+        # ── Perk badges ──────────────────────
         if self.perks:
             perk_bar = tk.Frame(self.master, bg=self.theme_bg)
             perk_bar.pack(fill=tk.X, padx=8, pady=2)
@@ -259,7 +268,7 @@ class RogueMinesweeper:
                          bg="#1a1a30", fg=self.theme_fg,
                          padx=4).pack(side=tk.LEFT, padx=2)
 
-
+        # ── Grid ─────────────────────────────
         grid_wrap = tk.Frame(self.master, bg=self.theme_bg)
         grid_wrap.pack(padx=4, pady=4)
 
@@ -287,21 +296,21 @@ class RogueMinesweeper:
                 row_btns.append(btn)
             self.buttons.append(row_btns)
 
-
+        # ── Apply entrance perks ──────────────
         self.master.after(300, self._apply_entrance_perks)
 
-
+    # ── Entrance perk effects ─────────────────
     def _apply_entrance_perks(self):
         """Perks that fire at the start of a floor (before first click)."""
         if "Cartographer" in self.perks:
             corners = [(0,0),(0,self.cols-1),(self.rows-1,0),(self.rows-1,self.cols-1)]
-
+            # We can't reveal before mines are placed, mark for post-first-click
             self._cartographer_pending = True
         if "Sixth Sense" in self.perks:
- 
+            # Will flash one mine after mines are placed
             self._sixth_sense_pending = True
 
-
+    # ── Helpers ──────────────────────────────
     def _lives_text(self):
         return "❤️ " * self.lives if self.lives > 0 else "💀"
 
@@ -340,19 +349,19 @@ class RogueMinesweeper:
         chosen = random.sample(all_cells, min(self.mine_count, len(all_cells)))
         self.mine_locs = set(chosen)
 
-
+        # Lucky Charm: 15 % of mines become duds
         if "Lucky Charm" in self.perks:
             dud_count = max(1, int(len(self.mine_locs) * 0.15))
             self.duds = set(random.sample(list(self.mine_locs), dud_count))
 
-
+    # ── Timer ────────────────────────────────
     def _tick(self):
         if not self.floor_ended:
             self.floor_seconds += 1
             self.timer_lbl.config(text=f"⏱ {self.floor_seconds}")
             self.master.after(1000, self._tick)
 
-
+    # ── XP / levelling ───────────────────────
     def _gain_xp(self, amount):
         self.player_xp += amount
         levelled = False
@@ -366,7 +375,7 @@ class RogueMinesweeper:
             self.level_lbl.config(text=f"Lv {self.player_level}")
         return levelled
 
-  
+    # ── Clicks ───────────────────────────────
     def click(self, r, c):
         if self.floor_ended:
             return
@@ -390,17 +399,66 @@ class RogueMinesweeper:
         self.score += 1
         if hasattr(self, "score_lbl"):
             self.score_lbl.config(text=f"★ {self.score}")
-        if levelled:
-            self.floor_ended = True   
-            self.master.after(200, lambda: self.show_perk_screen(self._resume_floor))
 
         safe_count = self.rows * self.cols - len(self.mine_locs) + len(self.duds)
-        if len(self.revealed) >= safe_count:
+        floor_done = len(self.revealed) >= safe_count
+
+        if floor_done:
+            # Floor clear takes priority — perk (if any) fires after descent
             self._floor_clear()
+        elif levelled:
+            # Mid-floor level-up: pause and show perk screen, then resume same board
+            self.floor_ended = True
+            self.master.after(200, lambda: self.show_perk_screen(self._resume_floor))
 
     def _resume_floor(self):
-        self.floor_ended = False
-        self._start_floor()   
+        """Called after perk screen closes mid-floor. Window was cleared, so
+        rebuild the HUD + grid, then restore the board state."""
+        # Save state that _build_floor will reset
+        saved_revealed  = self.revealed
+        saved_flagged   = self.flagged
+        saved_mines     = self.mine_locs
+        saved_duds      = self.duds
+        saved_seconds   = self.floor_seconds
+        saved_first     = self.first_click  # always False if we levelled mid-game
+
+        theme = FLOOR_THEMES[(self.floor - 1) % len(FLOOR_THEMES)]
+        self._build_floor(self.rows, self.cols, self.mine_count, theme)
+
+        # Restore state
+        self.mine_locs     = saved_mines
+        self.duds          = saved_duds
+        self.floor_seconds = saved_seconds
+        self.first_click   = saved_first
+        self.floor_ended   = False
+
+        # Re-apply visual state to all buttons
+        for (r, c) in saved_revealed:
+            self.revealed.add((r, c))
+            count = self.count_adj_mines(r, c)
+            btn = self.buttons[r][c]
+            is_dud = (r, c) in self.duds
+            btn.config(relief=tk.SUNKEN,
+                       bg="#13132a" if not is_dud else "#1a2a1a",
+                       state=tk.DISABLED, text="")
+            if is_dud:
+                btn.config(text="💫", fg="#ffe08a")
+            elif count > 0:
+                btn.config(text=str(count), fg=NUMBER_COLORS.get(count, "#eeeeee"))
+
+        for (r, c) in saved_flagged:
+            if (r, c) not in self.revealed:
+                self.flagged.add((r, c))
+                self.buttons[r][c].config(text="🚩", bg="#1a1a30")
+
+        # Refresh dynamic HUD labels
+        remaining = self.mine_count - len(self.flagged)
+        self.mine_lbl.config(text=f"💣 {remaining}")
+        self.timer_lbl.config(text=f"⏱ {self.floor_seconds}")
+        self._redraw_xp_bar()
+
+        # Restart timer tick
+        self.master.after(1000, self._tick)
 
     def _post_first_click_perks(self, r, c):
         if getattr(self, "_cartographer_pending", False):
@@ -427,8 +485,9 @@ class RogueMinesweeper:
                 self.reveal(pick[0], pick[1])
 
         if "Pathfinder" in self.perks:
-
-            pass  
+            # Ensure large opening: temporarily make the clicked cell a big clear zone
+            # by revealing all zero-adjacent cells in a wider radius
+            pass  # standard reveal already handles BFS zeros
 
     def _hide_sixth_sense(self, m):
         if m not in self.revealed and m not in self.flagged:
@@ -444,7 +503,7 @@ class RogueMinesweeper:
             self.flagged.add((r, c))
             self.buttons[r][c].config(text="🚩", bg="#1a1a30")
             bonus_xp = XP_PER_FLAG if "Scavenger" in self.perks else 0
-
+            # Only give XP if flagging an actual mine
             if (r, c) in self.mine_locs:
                 self._gain_xp(XP_PER_FLAG + bonus_xp)
                 self.total_flags += 1
@@ -460,11 +519,11 @@ class RogueMinesweeper:
             extra = 1 if "Berserker" in self.perks else 0
             targets = [(nr, nc) for nr, nc in self.get_neighbors(r, c)
                        if (nr, nc) not in self.flagged and (nr, nc) not in self.revealed]
-    
+            # Reveal all safe targets
             for nr, nc in targets[:len(targets) - extra if extra else len(targets)]:
                 self.click(nr, nc)
 
-
+    # ── Reveal BFS ───────────────────────────
     def reveal(self, start_r, start_c):
         queue = deque([(start_r, start_c)])
         while queue:
@@ -489,14 +548,14 @@ class RogueMinesweeper:
                     if (nr, nc) not in self.revealed:
                         queue.append((nr, nc))
 
-
+    # ── Mine hit ─────────────────────────────
     def _hit_mine(self, r, c):
         self.floor_ended = True
         self.buttons[r][c].config(text="💥", bg="#ff2200", state=tk.DISABLED)
         self.master.after(400, lambda: self._process_death(r, c))
 
     def _process_death(self, r, c):
-
+        # Reveal all mines
         for mr, mc in self.mine_locs:
             if (mr, mc) not in self.revealed and (mr, mc) not in self.duds:
                 self.buttons[mr][mc].config(
@@ -525,6 +584,7 @@ class RogueMinesweeper:
         else:
             self.show_game_over()
 
+    # ── Floor clear ──────────────────────────
     def _floor_clear(self):
         self.floor_ended = True
         self.floors_cleared += 1
@@ -532,7 +592,7 @@ class RogueMinesweeper:
         levelled = self._gain_xp(bonus)
         self.score += bonus
 
-
+        # Auto-flag remaining mines
         for mr, mc in self.mine_locs:
             if (mr, mc) not in self.flagged and (mr, mc) not in self.duds:
                 self.flagged.add((mr, mc))
@@ -553,7 +613,7 @@ class RogueMinesweeper:
         else:
             self.show_game_over(voluntary=True)
 
-
+    # ── Game over / stats screen ──────────────
     def show_game_over(self, voluntary=False):
         self._clear_window()
         bg = "#0d0d1a"
@@ -619,7 +679,9 @@ class RogueMinesweeper:
                   command=self.master.quit).pack(side=tk.LEFT, padx=8)
 
 
-
+# ─────────────────────────────────────────────
+#  ENTRY POINT
+# ─────────────────────────────────────────────
 if __name__ == "__main__":
     root = tk.Tk()
     root.title("Minesweeper Roguelike")
