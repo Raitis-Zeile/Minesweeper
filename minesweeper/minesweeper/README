@@ -1,0 +1,45 @@
+Minesweeper Roguelike
+A dungeon crawling twist on classic Minesweeper. Decend through increasingly harder floors, earn XP, level up, and choose perks that change how you play.
+
+Running the game
+    after geting files fro github, go to dist and click on MinesweeperRoguelike.exe
+
+Controls
+    left click - Reveal a cell
+    Right click - Place/remove a flag
+    Middle click - Chord
+
+How it works
+    Floors 
+        Each run is endles descent through floors. Every floor i a minesweeper bor clear it by reveling all safe cells then descend deeper. Floors ged progressively larger and will have more mines
+        
+        floor 1 9x9 with around 12% mines
+        floor 5 17x17 with around 18% mines
+        floor 10+ 20x20+ with up to 30% mines
+
+        Each floor also has a visual theme that changes th color palette:
+            Dungeon>Crypt>Cavern>Abyss>Hellgate>Void
+    
+    Lives
+        You start with 3 lives. Hit a mine an you lose one, as simple as that. 
+
+Scoring and XP
+
+    Reveal a safe cell + 1XP +1 Score
+    Flag a real mine +3XP no Score
+    Clear a floor +50XP + time bonus +50 Score + bonus
+
+    The time bonus for floor cler rewars speed, the faster you finish the more you get
+
+Leveling up
+    By geting enough XP you level up. Each level  requires more XP that last. Once you level up you get a new perk.
+
+Perks
+    Iron will - Gain +1 extra life immediately
+    Eagle Eye - One random safe cell is auto revealed for you at start of the floor
+    Cartographer - All four corner cells are reveled for you at the start of each floor
+    Scavenger - Correctly flagging a mine grants a bonus XP
+    Berserker - Chord clicking reveals one extra unrevealed neighbor
+    Sixth Sense - One mine location is briefly flashed at the start of each floor
+    Lucky Charm - 15% of mines become harmless duds shown as 💫 when revealed
+    Pathfinder-  echances BFS reveal on open areas
